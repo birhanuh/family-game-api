@@ -19,9 +19,9 @@ if (IS_OFFLINE) {
 
 const router = express.Router();
 
-/** USER */
-// Create Game endpoint
-router.put('/:userId/create', function (req, res) {
+/** QUESTION */
+// Create Question endpoint
+router.put('/:gameId/questions/create', function (req, res) {
   const { title } = req.body;
 
   if (typeof title !== 'string') {
@@ -31,105 +31,105 @@ router.put('/:userId/create', function (req, res) {
   const params = {
     TableName: USERS_TABLE,
     Key: {
-      userId: req.params.userId,
+      gameId: req.params.gameId,
     },
     ExpressionAttributeNames: {
-      "#Y": "games"
+      "#Y": "questions"
     },
     UpdateExpression: "SET #Y = list_append(#Y,:y)",
     ExpressionAttributeValues: {
-      ":y": [{ gameId: shortid.generate(), title }]
+      ":y": [{ questionId: shortid.generate(), title, isAsked: false }]
     },
   };
 
   DynamoDB.update(params, (error) => {
     if (error) {
       console.log(error);
-      res.status(400).json({ error: 'Could not create game' });
+      res.status(400).json({ error: 'Could not create question' });
     }
 
-    res.json({ gameId: shortid.generate(), title });
+    res.json({ questionId: shortid.generate(), title, isAsked: false });
   });
 })
 
-// Update Game endpoint
-router.put('/:userId/games/:gameId/update', async function (req, res) {
-  const { title, score } = req.body;
+// Update Question endpoint
+router.put('/:gameId/questions/:questionId/update', async function (req, res) {
+  const { title, isAsked } = req.body;
 
   if (typeof title !== 'string') {
     res.status(400).json({ error: '"title" must be a string' });
   }
 
-  if (typeof score !== 'number') {
-    res.status(400).json({ error: '"score" must be a number' });
+  if (typeof isAsked !== 'boolean') {
+    res.status(400).json({ error: '"isAsked" must be a boolean' });
   }
 
   const result = await DynamoDB.get({
     TableName: USERS_TABLE,
     Key: {
-      userId: req.params.userId,
+      gameId: req.params.gameId,
     },
   }).promise();
 
   // find the index
-  const indexToUpdate = findWithAttr(result.Item.games, 'gameId', req.params.gameId);
+  const indexToUpdate = findWithAttr(result.Item.questions, 'questionId', req.params.questionId);
   if (indexToUpdate === -1) {
     // element not found
-    res.status(400).json({ error: 'Game not found' });
+    res.status(400).json({ error: 'Question not found' });
   }
 
   const params = {
     TableName: USERS_TABLE,
     Key: {
-      userId: req.params.userId,
+      gameId: req.params.gameId,
     },
-    UpdateExpression: `SET games[${indexToUpdate}] = :valueToUpdate`,
+    UpdateExpression: `SET questions[${indexToUpdate}] = :valueToUpdate`,
     ExpressionAttributeValues: {
-      ":valueToUpdate": { gameId: req.params.gameId, title, score }
+      ":valueToUpdate": { questionId: req.params.questionId, title, isAsked }
     },
   };
 
   DynamoDB.update(params, (error) => {
     if (error) {
       console.log(error);
-      res.status(400).json({ error: 'Could not update game' });
+      res.status(400).json({ error: 'Could not update question' });
     }
 
-    res.json({ gameId: req.params.gameId, title, score });
+    res.json({ questionId: req.params.questionId, title, isAsked });
   });
 })
 
-// Delete Game endpoint
-router.put('/:userId/games/:gameId/delete', async function (req, res) {
+// Delete Question endpoint
+router.put('/:gameId/questions/:questionId/delete', async function (req, res) {
   const result = await DynamoDB.get({
     TableName: USERS_TABLE,
     Key: {
-      userId: req.params.userId,
+      gameId: req.params.gameId,
     },
   }).promise();
 
   // find the index
-  const indexToRemove = findWithAttr(result.Item.games, 'gameId', req.params.gameId);
+  const indexToRemove = findWithAttr(result.Item.questions, 'questionId', req.params.questionId);
   if (indexToRemove === -1) {
     // element not found
-    res.status(400).json({ error: 'Game not found' });
+    res.status(400).json({ error: 'Question not found' });
   }
 
   const params = {
     TableName: USERS_TABLE,
     Key: {
-      userId: req.params.userId,
+      gameId: req.params.gameId,
     },
-    UpdateExpression: `REMOVE games[${indexToRemove}]`
+    UpdateExpression: `REMOVE questions[${indexToRemove}]`
   };
 
   DynamoDB.update(params, (error) => {
     if (error) {
       console.log(error);
-      res.status(400).json({ error: 'Could not delete game' });
+      res.status(400).json({ error: 'Could not delete question' });
     }
 
-    res.json({ gameId: req.params.gameId });
+    res.json({ questionId: req.params.questionId });
   });
 })
 

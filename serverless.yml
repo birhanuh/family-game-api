@@ -11,10 +11,10 @@
 #
 # Happy Coding!
 
-service: family-games-api
+service: family-users-api
 
 custom:
-  tableName: 'games-table-${self:provider.stage}'
+  tableName: 'users-table-${self:provider.stage}'
   dynamodb:
     stages:
       - dev
@@ -51,7 +51,7 @@ provider:
       - dynamodb:UpdateItem
       - dynamodb:DeleteItem
     Resource:
-      - { "Fn::GetAtt": ["GamesDynamoDBTable", "Arn" ] }
+      - { "Fn::GetAtt": ["UsersDynamoDBTable", "Arn" ] }
 environment:
   USERS_TABLE: ${self:custom.tableName}
 
@@ -64,16 +64,16 @@ functions:
 
 resources:
   Resources:
-    GamesDynamoDBTable:
+    UsersDynamoDBTable:
       Type: 'AWS::DynamoDB::Table'
       Properties:
         AttributeDefinitions:
           -
-            AttributeName: gameId
+            AttributeName: userId
             AttributeType: S
         KeySchema:
           -
-            AttributeName: gameId
+            AttributeName: userId
             KeyType: HASH
         ProvisionedThroughput:
           ReadCapacityUnits: 1
@@ -116,7 +116,7 @@ resources:
 #    Check the event documentation for details
 #    events:
 #      - httpApi:
-#          path: /games/create
+#          path: /users/create
 #          method: get
 #      - websocket: $connect
 #      - s3: ${env:BUCKET}
