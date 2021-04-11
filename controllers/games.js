@@ -52,8 +52,7 @@ router.get('/get/:gameId', function (req, res) {
       res.status(400).json({ error: 'Could not get game' });
     }
     if (result.Item) {
-      const { gameId, title } = result.Item;
-      res.json({ gameId, title });
+      res.json(result);
     } else {
       res.status(404).json({ error: "Game not found" });
     }
@@ -75,6 +74,7 @@ router.post('/create', function (req, res) {
       title: title,
       questions: [],
       players: [],
+      winner: {}
     },
   };
 
@@ -84,14 +84,14 @@ router.post('/create', function (req, res) {
       res.status(400).json({ error: 'Could not create game' });
     }
 
-    res.json({ gameId: params.Item.gameId, title });
+    res.json({ gameId: params.Item.gameId, title, players: [], questions: [] });
   });
 })
 
 
 // Update Game endpoint
-router.put('/update/:gameId', function (req, res) {
-  const { title } = req.body;
+router.put('/:gameId/update', function (req, res) {
+  const { title, winner } = req.body;
 
   if (typeof title !== 'string') {
     res.status(400).json({ error: '"title" must be a string' });
@@ -102,9 +102,10 @@ router.put('/update/:gameId', function (req, res) {
     Key: {
       gameId: req.params.gameId,
     },
-    UpdateExpression: 'SET title = :t',
+    UpdateExpression: 'SET title = :t, winner = :w',
     ExpressionAttributeValues: {
-      ':t': title
+      ':t': title,
+      ':w': winner
     },
     // ReturnValues: "UPDATED_NEW"
   };
@@ -119,7 +120,53 @@ router.put('/update/:gameId', function (req, res) {
   });
 })
 
-// Create Game endpoint
+// Reset Game endpoint
+router.put('/:gameId/reset', async function (req, res) {
+  const result = await DynamoDB.get({
+    TableName: GAMES_TABLE,
+    Key: {
+      gameId: req.params.gameId,
+    },
+  }).promise();
+
+  // Reset players
+  const playersReseted = result.Item.players.map(player => {
+    player.score = 0;
+
+    return player
+  });
+
+  // Reset questions
+  const questionsReseted = result.Item.questions.map(question => {
+    question.isAsked = false;
+
+    return question
+  });
+
+  const params = {
+    TableName: GAMES_TABLE,
+    Key: {
+      gameId: req.params.gameId,
+    },
+    UpdateExpression: `SET winner = :w, players = :pls, questions = :qts`,
+    ExpressionAttributeValues: {
+      ':w': {},
+      ":pls": playersReseted,
+      ":qts": questionsReseted
+    },
+  };
+
+  DynamoDB.update(params, (error, result) => {
+    if (error) {
+      console.log(error);
+      res.status(400).json({ error: 'Could not create game' });
+    }
+
+    res.json(result);
+  });
+})
+
+// Delete Game endpoint
 router.post('/delete/:gameId', function (req, res) {
   const params = {
     TableName: GAMES_TABLE,
@@ -142,12 +189,12 @@ router.post('/delete/:gameId', function (req, res) {
 })
 
 /** QUESTION */
-// Create Question endpoint
-router.put('/:gameId/questions/create', function (req, res) {
-  const { title } = req.body;
+// Add Question endpoint
+router.put('/:gameId/questions/add', function (req, res) {
+  const { question } = req.body;
 
-  if (typeof title !== 'string') {
-    res.status(400).json({ error: '"title" must be a string' });
+  if (typeof question !== 'string') {
+    res.status(400).json({ error: '"question" must be a string' });
   }
 
   const params = {
@@ -160,7 +207,7 @@ router.put('/:gameId/questions/create', function (req, res) {
     },
     UpdateExpression: "SET #Y = list_append(#Y,:y)",
     ExpressionAttributeValues: {
-      ":y": [{ questionId: shortid.generate(), title, isAnswered: false }]
+      ":y": [{ questionId: shortid.generate(), question, isAsked: false }]
     },
   };
 
@@ -170,20 +217,20 @@ router.put('/:gameId/questions/create', function (req, res) {
       res.status(400).json({ error: 'Could not create question' });
     }
 
-    res.json({ questionId: shortid.generate(), title, isAnswered: false });
+    res.json({ gameId: req.params.gameId, questionId: shortid.generate(), question, isAsked: false });
   });
 })
 
 // Update Question endpoint
 router.put('/:gameId/questions/:questionId/update', async function (req, res) {
-  const { title, isAnswered } = req.body;
+  const { question, isAsked } = req.body;
 
-  if (typeof title !== 'string') {
-    res.status(400).json({ error: '"title" must be a string' });
+  if (typeof question !== 'string') {
+    res.status(400).json({ error: '"question" must be a string' });
   }
 
-  if (typeof isAnswered !== 'boolean') {
-    res.status(400).json({ error: '"isAnswered" must be a boolean' });
+  if (typeof isAsked !== 'boolean') {
+    res.status(400).json({ error: '"isAsked" must be a boolean' });
   }
 
   const result = await DynamoDB.get({
@@ -207,7 +254,7 @@ router.put('/:gameId/questions/:questionId/update', async function (req, res) {
     },
     UpdateExpression: `SET questions[${indexToUpdate}] = :valueToUpdate`,
     ExpressionAttributeValues: {
-      ":valueToUpdate": { questionId: req.params.questionId, title, isAnswered }
+      ":valueToUpdate": { questionId: req.params.questionId, question, isAsked }
     },
   };
 
@@ -217,12 +264,12 @@ router.put('/:gameId/questions/:questionId/update', async function (req, res) {
       res.status(400).json({ error: 'Could not update question' });
     }
 
-    res.json({ questionId: req.params.questionId, title, isAnswered });
+    res.json({ gameId: req.params.gameId, questionId: req.params.questionId, question, isAsked });
   });
 })
 
 // Delete Question endpoint
-router.put('/:gameId/questions/:questionId/delete', async function (req, res) {
+router.delete('/:gameId/questions/:questionId/delete', async function (req, res) {
   const result = await DynamoDB.get({
     TableName: GAMES_TABLE,
     Key: {
@@ -251,17 +298,17 @@ router.put('/:gameId/questions/:questionId/delete', async function (req, res) {
       res.status(400).json({ error: 'Could not delete question' });
     }
 
-    res.json({ questionId: req.params.questionId });
+    res.json({ gameId: req.params.gameId, questionId: req.params.questionId });
   });
 })
 
 /** PLAYER */
-// Create Player endpoint
-router.put('/:gameId/players/create', function (req, res) {
+// Add Player endpoint
+router.put('/:gameId/players/add', function (req, res) {
   const { name } = req.body;
 
   if (typeof name !== 'string') {
-    res.status(400).json({ error: '"title" must be a string' });
+    res.status(400).json({ error: '"name" must be a string' });
   }
 
   const params = {
@@ -284,7 +331,7 @@ router.put('/:gameId/players/create', function (req, res) {
       res.status(400).json({ error: 'Could not create player' });
     }
 
-    res.json({ playerId: shortid.generate(), name, score: 0 });
+    res.json({ gameId: req.params.gameId, playerId: shortid.generate(), name, score: 0 });
   });
 })
 
@@ -293,7 +340,7 @@ router.put('/:gameId/players/:playerId/update', async function (req, res) {
   const { name, score } = req.body;
 
   if (typeof name !== 'string') {
-    res.status(400).json({ error: '"title" must be a string' });
+    res.status(400).json({ error: '"name" must be a string' });
   }
 
   if (typeof score !== 'number') {
@@ -331,12 +378,12 @@ router.put('/:gameId/players/:playerId/update', async function (req, res) {
       res.status(400).json({ error: 'Could not update player' });
     }
 
-    res.json({ playerId: req.params.playerId, name, score });
+    res.json({ gameId: req.params.gameId, playerId: req.params.playerId, name, score });
   });
 })
 
 // Delete Player endpoint
-router.put('/:gameId/players/:playerId/delete', async function (req, res) {
+router.delete('/:gameId/players/:playerId/delete', async function (req, res) {
   const result = await DynamoDB.get({
     TableName: GAMES_TABLE,
     Key: {
@@ -365,7 +412,7 @@ router.put('/:gameId/players/:playerId/delete', async function (req, res) {
       res.status(400).json({ error: 'Could not delete player' });
     }
 
-    res.json({ playerId: req.params.playerId });
+    res.json({ gameId: req.params.gameId, playerId: req.params.playerId });
   });
 })
 

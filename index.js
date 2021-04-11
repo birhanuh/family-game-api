@@ -2,8 +2,6 @@ const serverless = require('serverless-http');
 const express = require('express');
 const app = express();
 
-require("dotenv/config");
-
 // env
 require("dotenv").config();
 
