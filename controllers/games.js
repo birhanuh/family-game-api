@@ -21,7 +21,16 @@ const router = express.Router();
 router.get('/', function (req, res) {
   const params = {
     TableName: GAMES_TABLE,
-    Select: "ALL_ATTRIBUTES"
+    Select: "ALL_ATTRIBUTES",
+    KeyConditions: {
+      Status: {
+        ComparisonOperator: "EQ",
+        AttributeValueList: [
+          "OK"
+        ]
+      }
+    },
+    ScanIndexForward: false
   }
 
   DynamoDB.scan(params, (error, result) => {
@@ -84,7 +93,7 @@ router.post('/create', function (req, res) {
       res.status(400).json({ error: 'Could not create game' });
     }
 
-    res.json({ gameId: params.Item.gameId, title, players: [], questions: [] });
+    res.json({ gameId: params.Item.gameId, winner: {}, title, players: [], questions: [] });
   });
 })
 
@@ -107,7 +116,7 @@ router.put('/:gameId/update', function (req, res) {
       ':t': title,
       ':w': winner
     },
-    // ReturnValues: "UPDATED_NEW"
+    'ReturnValues': 'ALL_NEW'
   };
 
   DynamoDB.update(params, (error, result) => {
@@ -154,6 +163,7 @@ router.put('/:gameId/reset', async function (req, res) {
       ":pls": playersReseted,
       ":qts": questionsReseted
     },
+    'ReturnValues': 'ALL_NEW'
   };
 
   DynamoDB.update(params, (error, result) => {
