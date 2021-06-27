@@ -1,9 +1,31 @@
 const express = require('express')
 const AWS = require('aws-sdk');
 const shortid = require('shortid');
+const cors = require('cors')
 
-const GAMES_TABLE = process.env.GAMES_TABLE;
-const IS_OFFLINE = process.env.IS_OFFLINE;
+const app = express();
+
+// env
+require("dotenv").config();
+
+const corsOptions = {
+  origin: ['http://localhost:3001/', 'https://family-game.netlify.app/'],
+  optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
+}
+
+app.use(cors(corsOptions));
+
+/** Using env file is not working in AWS */
+// const GAMES_TABLE = process.env.GAMES_TABLE;
+// const IS_OFFLINE = process.env.IS_OFFLINE;
+
+const GAMES_TABLE = 'games-table-dev';
+const IS_OFFLINE = false; // Set to true for dev
+
+// app.use(function (req, res, next) {
+//   res.setHeader("Access-Control-Allow-Origin", "https://family-game.netlify.app/");
+//   next();
+// })
 
 let DynamoDB;
 if (IS_OFFLINE) {
@@ -15,10 +37,8 @@ if (IS_OFFLINE) {
   DynamoDB = new AWS.DynamoDB.DocumentClient();
 };
 
-const router = express.Router();
-
 // Get Games endpoint
-router.get('/', function (req, res) {
+app.get('/', function (req, res) {
   const params = {
     TableName: GAMES_TABLE,
     Select: "ALL_ATTRIBUTES",
@@ -47,7 +67,7 @@ router.get('/', function (req, res) {
 })
 
 // Get Game endpoint
-router.get('/get/:gameId', function (req, res) {
+app.get('/get/:gameId', function (req, res) {
   const params = {
     TableName: GAMES_TABLE,
     Key: {
@@ -69,7 +89,7 @@ router.get('/get/:gameId', function (req, res) {
 })
 
 // Create Game endpoint
-router.post('/create', function (req, res) {
+app.post('/create', function (req, res) {
   const { title } = req.body;
 
   if (typeof title !== 'string') {
@@ -99,7 +119,7 @@ router.post('/create', function (req, res) {
 
 
 // Update Game endpoint
-router.put('/:gameId/update', function (req, res) {
+app.put('/:gameId/update', function (req, res) {
   const { title, winner } = req.body;
 
   if (typeof title !== 'string') {
@@ -130,7 +150,7 @@ router.put('/:gameId/update', function (req, res) {
 })
 
 // Reset Game endpoint
-router.put('/:gameId/reset', async function (req, res) {
+app.put('/:gameId/reset', async function (req, res) {
   const result = await DynamoDB.get({
     TableName: GAMES_TABLE,
     Key: {
@@ -177,7 +197,7 @@ router.put('/:gameId/reset', async function (req, res) {
 })
 
 // Delete Game endpoint
-router.post('/delete/:gameId', function (req, res) {
+app.post('/delete/:gameId', function (req, res) {
   const params = {
     TableName: GAMES_TABLE,
     Key: {
@@ -200,7 +220,7 @@ router.post('/delete/:gameId', function (req, res) {
 
 /** QUESTION */
 // Add Question endpoint
-router.put('/:gameId/questions/add', function (req, res) {
+app.put('/:gameId/questions/add', function (req, res) {
   const { question } = req.body;
 
   if (typeof question !== 'string') {
@@ -232,7 +252,7 @@ router.put('/:gameId/questions/add', function (req, res) {
 })
 
 // Update Question endpoint
-router.put('/:gameId/questions/:questionId/update', async function (req, res) {
+app.put('/:gameId/questions/:questionId/update', async function (req, res) {
   const { question, isAsked } = req.body;
 
   if (typeof question !== 'string') {
@@ -279,7 +299,7 @@ router.put('/:gameId/questions/:questionId/update', async function (req, res) {
 })
 
 // Delete Question endpoint
-router.delete('/:gameId/questions/:questionId/delete', async function (req, res) {
+app.delete('/:gameId/questions/:questionId/delete', async function (req, res) {
   const result = await DynamoDB.get({
     TableName: GAMES_TABLE,
     Key: {
@@ -314,7 +334,7 @@ router.delete('/:gameId/questions/:questionId/delete', async function (req, res)
 
 /** PLAYER */
 // Add Player endpoint
-router.put('/:gameId/players/add', function (req, res) {
+app.put('/:gameId/players/add', function (req, res) {
   const { name } = req.body;
 
   if (typeof name !== 'string') {
@@ -346,7 +366,7 @@ router.put('/:gameId/players/add', function (req, res) {
 })
 
 // Update Player endpoint
-router.put('/:gameId/players/:playerId/update', async function (req, res) {
+app.put('/:gameId/players/:playerId/update', async function (req, res) {
   const { name, score } = req.body;
 
   if (typeof name !== 'string') {
@@ -393,7 +413,7 @@ router.put('/:gameId/players/:playerId/update', async function (req, res) {
 })
 
 // Delete Player endpoint
-router.delete('/:gameId/players/:playerId/delete', async function (req, res) {
+app.delete('/:gameId/players/:playerId/delete', async function (req, res) {
   const result = await DynamoDB.get({
     TableName: GAMES_TABLE,
     Key: {
@@ -426,7 +446,7 @@ router.delete('/:gameId/players/:playerId/delete', async function (req, res) {
   });
 })
 
-module.exports = router;
+module.exports = app;
 
 function findWithAttr(array, attr, value) {
   for (var i = 0; i < array.length; i += 1) {
