@@ -1,15 +1,18 @@
 const serverless = require('serverless-http');
 const express = require('express');
+
+// app
 const app = express();
 
 // env
 require("dotenv").config();
 
+// get body as json
+app.use(express.json());
+
 // controllers
 // const users = require('./controllers/users');
 const games = require('./controllers/games');
-
-app.use(express.json());
 
 // CORS
 app.use(function (req, res, next) {

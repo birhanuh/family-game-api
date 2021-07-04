@@ -3,6 +3,7 @@ const AWS = require('aws-sdk');
 const shortid = require('shortid');
 const cors = require('cors')
 
+// app
 const app = express();
 
 // env
@@ -20,7 +21,7 @@ app.use(cors(corsOptions));
 // const IS_OFFLINE = process.env.IS_OFFLINE;
 
 const GAMES_TABLE = 'games-table-dev';
-const IS_OFFLINE = false; // Set to true for dev
+const IS_OFFLINE = true; // Set to true for dev
 
 // app.use(function (req, res, next) {
 //   res.setHeader("Access-Control-Allow-Origin", "https://family-game.netlify.app/");
@@ -312,24 +313,24 @@ app.delete('/:gameId/questions/:questionId/delete', async function (req, res) {
   if (indexToRemove === -1) {
     // element not found
     res.status(400).json({ error: 'Question not found' });
+  } else {
+    const params = {
+      TableName: GAMES_TABLE,
+      Key: {
+        gameId: req.params.gameId,
+      },
+      UpdateExpression: `REMOVE questions[${indexToRemove}]`
+    };
+
+    DynamoDB.update(params, (error) => {
+      if (error) {
+        console.log(error);
+        res.status(400).json({ error: 'Could not delete question' });
+      }
+
+      res.json({ gameId: req.params.gameId, questionId: req.params.questionId });
+    });
   }
-
-  const params = {
-    TableName: GAMES_TABLE,
-    Key: {
-      gameId: req.params.gameId,
-    },
-    UpdateExpression: `REMOVE questions[${indexToRemove}]`
-  };
-
-  DynamoDB.update(params, (error) => {
-    if (error) {
-      console.log(error);
-      res.status(400).json({ error: 'Could not delete question' });
-    }
-
-    res.json({ gameId: req.params.gameId, questionId: req.params.questionId });
-  });
 })
 
 /** PLAYER */
@@ -389,27 +390,27 @@ app.put('/:gameId/players/:playerId/update', async function (req, res) {
   if (indexToUpdate === -1) {
     // element not found
     res.status(400).json({ error: 'Player not found' });
+  } else {
+    const params = {
+      TableName: GAMES_TABLE,
+      Key: {
+        gameId: req.params.gameId,
+      },
+      UpdateExpression: `SET players[${indexToUpdate}] = :valueToUpdate`,
+      ExpressionAttributeValues: {
+        ":valueToUpdate": { playerId: req.params.playerId, name, score }
+      },
+    };
+
+    DynamoDB.update(params, (error) => {
+      if (error) {
+        console.log(error);
+        res.status(400).json({ error: 'Could not update player' });
+      }
+
+      res.json({ gameId: req.params.gameId, playerId: req.params.playerId, name, score });
+    });
   }
-
-  const params = {
-    TableName: GAMES_TABLE,
-    Key: {
-      gameId: req.params.gameId,
-    },
-    UpdateExpression: `SET players[${indexToUpdate}] = :valueToUpdate`,
-    ExpressionAttributeValues: {
-      ":valueToUpdate": { playerId: req.params.playerId, name, score }
-    },
-  };
-
-  DynamoDB.update(params, (error) => {
-    if (error) {
-      console.log(error);
-      res.status(400).json({ error: 'Could not update player' });
-    }
-
-    res.json({ gameId: req.params.gameId, playerId: req.params.playerId, name, score });
-  });
 })
 
 // Delete Player endpoint
