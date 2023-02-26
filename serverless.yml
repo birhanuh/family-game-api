@@ -20,6 +20,7 @@ custom:
       - dev
     start:
       migrate: true
+    noStart: true
 
 # app and org for use with dashboard.serverless.com
 #app: your-app-name
@@ -27,7 +28,7 @@ custom:
 
 # You can pin your service to only deploy with a specific Serverless version
 # Check out our docs for more details
-frameworkVersion: '2'
+frameworkVersion: '3'
 
 plugins:
   - serverless-dynamodb-local
@@ -42,25 +43,25 @@ provider:
   stage: dev
   region: eu-west-1
   iamRoleStatements:
-  - Effect: Allow
-    Action:
-      - dynamodb:Query
-      - dynamodb:Scan
-      - dynamodb:GetItem
-      - dynamodb:PutItem
-      - dynamodb:UpdateItem
-      - dynamodb:DeleteItem
-    Resource:
-      - { "Fn::GetAtt": ["GamesDynamoDBTable", "Arn" ] }
-environment:
-  USERS_TABLE: ${self:custom.tableName}
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - { 'Fn::GetAtt': ['GamesDynamoDBTable', 'Arn'] }
 
 functions:
   app:
     handler: index.handler
     events:
       - http: ANY /
-      - http: 'ANY {proxy+}'
+      - http: 'ANY /{proxy+}'
+    environment:
+      USERS_TABLE: ${self:custom.tableName}
 
 resources:
   Resources:
@@ -68,18 +69,19 @@ resources:
       Type: 'AWS::DynamoDB::Table'
       Properties:
         AttributeDefinitions:
-          -
-            AttributeName: gameId
+          - AttributeName: gameId
             AttributeType: S
         KeySchema:
-          -
-            AttributeName: gameId
+          - AttributeName: gameId
             KeyType: HASH
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
         TableName: ${self:custom.tableName}
-
+package:
+  exclude:
+    - node_modules/**
+    - venv/**
 # you can add statements to the Lambda function's IAM Role here
 #  iamRoleStatements:
 #    - Effect: "Allow"

@@ -1,18 +1,18 @@
-const express = require('express')
+const express = require('express');
 const AWS = require('aws-sdk');
 const shortid = require('shortid');
-const cors = require('cors')
+const cors = require('cors');
 
 // app
 const app = express();
 
 // env
-require("dotenv").config();
+require('dotenv').config();
 
 const corsOptions = {
   origin: ['http://localhost:3001/', 'https://family-game.netlify.app/'],
-  optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
-}
+  optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
+};
 
 app.use(cors(corsOptions));
 
@@ -32,27 +32,25 @@ let DynamoDB;
 if (IS_OFFLINE) {
   DynamoDB = new AWS.DynamoDB.DocumentClient({
     region: 'localhost',
-    endpoint: 'http://localhost:8000'
-  })
+    endpoint: 'http://localhost:8000',
+  });
 } else {
   DynamoDB = new AWS.DynamoDB.DocumentClient();
-};
+}
 
 // Get Games endpoint
 app.get('/', function (req, res) {
   const params = {
     TableName: GAMES_TABLE,
-    Select: "ALL_ATTRIBUTES",
+    Select: 'ALL_ATTRIBUTES',
     KeyConditions: {
       Status: {
-        ComparisonOperator: "EQ",
-        AttributeValueList: [
-          "OK"
-        ]
-      }
+        ComparisonOperator: 'EQ',
+        AttributeValueList: ['OK'],
+      },
     },
-    ScanIndexForward: false
-  }
+    ScanIndexForward: false,
+  };
 
   DynamoDB.scan(params, (error, result) => {
     if (error) {
@@ -62,10 +60,10 @@ app.get('/', function (req, res) {
     if (result) {
       res.json(result);
     } else {
-      res.status(404).json({ error: "Games not found" });
+      res.status(404).json({ error: 'Games not found' });
     }
   });
-})
+});
 
 // Get Game endpoint
 app.get('/get/:gameId', function (req, res) {
@@ -74,7 +72,7 @@ app.get('/get/:gameId', function (req, res) {
     Key: {
       gameId: req.params.gameId,
     },
-  }
+  };
 
   DynamoDB.get(params, (error, result) => {
     if (error) {
@@ -84,10 +82,10 @@ app.get('/get/:gameId', function (req, res) {
     if (result.Item) {
       res.json(result);
     } else {
-      res.status(404).json({ error: "Game not found" });
+      res.status(404).json({ error: 'Game not found' });
     }
   });
-})
+});
 
 // Create Game endpoint
 app.post('/create', function (req, res) {
@@ -104,7 +102,7 @@ app.post('/create', function (req, res) {
       title: title,
       questions: [],
       players: [],
-      winner: {}
+      winner: {},
     },
   };
 
@@ -116,8 +114,7 @@ app.post('/create', function (req, res) {
 
     res.json({ gameId: params.Item.gameId, winner: {}, title, players: [], questions: [] });
   });
-})
-
+});
 
 // Update Game endpoint
 app.put('/:gameId/update', function (req, res) {
@@ -135,9 +132,9 @@ app.put('/:gameId/update', function (req, res) {
     UpdateExpression: 'SET title = :t, winner = :w',
     ExpressionAttributeValues: {
       ':t': title,
-      ':w': winner
+      ':w': winner,
     },
-    'ReturnValues': 'ALL_NEW'
+    ReturnValues: 'ALL_NEW',
   };
 
   DynamoDB.update(params, (error, result) => {
@@ -148,7 +145,7 @@ app.put('/:gameId/update', function (req, res) {
 
     res.json(result);
   });
-})
+});
 
 // Reset Game endpoint
 app.put('/:gameId/reset', async function (req, res) {
@@ -160,17 +157,17 @@ app.put('/:gameId/reset', async function (req, res) {
   }).promise();
 
   // Reset players
-  const playersReseted = result.Item.players.map(player => {
+  const playersReseted = result.Item.players.map((player) => {
     player.score = 0;
 
-    return player
+    return player;
   });
 
   // Reset questions
-  const questionsReseted = result.Item.questions.map(question => {
+  const questionsReseted = result.Item.questions.map((question) => {
     question.isAsked = false;
 
-    return question
+    return question;
   });
 
   const params = {
@@ -181,10 +178,10 @@ app.put('/:gameId/reset', async function (req, res) {
     UpdateExpression: `SET winner = :w, players = :pls, questions = :qts`,
     ExpressionAttributeValues: {
       ':w': {},
-      ":pls": playersReseted,
-      ":qts": questionsReseted
+      ':pls': playersReseted,
+      ':qts': questionsReseted,
     },
-    'ReturnValues': 'ALL_NEW'
+    ReturnValues: 'ALL_NEW',
   };
 
   DynamoDB.update(params, (error, result) => {
@@ -195,7 +192,7 @@ app.put('/:gameId/reset', async function (req, res) {
 
     res.json(result);
   });
-})
+});
 
 // Delete Game endpoint
 app.post('/delete/:gameId', function (req, res) {
@@ -217,7 +214,7 @@ app.post('/delete/:gameId', function (req, res) {
       res.json(`Game ${title} is deleted!`);
     }
   });
-})
+});
 
 /** QUESTION */
 // Add Question endpoint
@@ -228,17 +225,20 @@ app.put('/:gameId/questions/add', function (req, res) {
     res.status(400).json({ error: '"question" must be a string' });
   }
 
+  // Short id
+  const shortId = shortid.generate();
+
   const params = {
     TableName: GAMES_TABLE,
     Key: {
       gameId: req.params.gameId,
     },
     ExpressionAttributeNames: {
-      "#Y": "questions"
+      '#Y': 'questions',
     },
-    UpdateExpression: "SET #Y = list_append(#Y,:y)",
+    UpdateExpression: 'SET #Y = list_append(#Y,:y)',
     ExpressionAttributeValues: {
-      ":y": [{ questionId: shortid.generate(), question, isAsked: false }]
+      ':y': [{ questionId: shortId, question, isAsked: false }],
     },
   };
 
@@ -248,9 +248,9 @@ app.put('/:gameId/questions/add', function (req, res) {
       res.status(400).json({ error: 'Could not create question' });
     }
 
-    res.json({ gameId: req.params.gameId, questionId: shortid.generate(), question, isAsked: false });
+    res.json({ gameId: req.params.gameId, questionId: shortId, question, isAsked: false });
   });
-})
+});
 
 // Update Question endpoint
 app.put('/:gameId/questions/:questionId/update', async function (req, res) {
@@ -285,7 +285,7 @@ app.put('/:gameId/questions/:questionId/update', async function (req, res) {
     },
     UpdateExpression: `SET questions[${indexToUpdate}] = :valueToUpdate`,
     ExpressionAttributeValues: {
-      ":valueToUpdate": { questionId: req.params.questionId, question, isAsked }
+      ':valueToUpdate': { questionId: req.params.questionId, question, isAsked },
     },
   };
 
@@ -297,7 +297,7 @@ app.put('/:gameId/questions/:questionId/update', async function (req, res) {
 
     res.json({ gameId: req.params.gameId, questionId: req.params.questionId, question, isAsked });
   });
-})
+});
 
 // Delete Question endpoint
 app.delete('/:gameId/questions/:questionId/delete', async function (req, res) {
@@ -307,9 +307,10 @@ app.delete('/:gameId/questions/:questionId/delete', async function (req, res) {
       gameId: req.params.gameId,
     },
   }).promise();
-
+  console.log('DS: ', result.Item, req.params);
   // find the index
   const indexToRemove = findWithAttr(result.Item.questions, 'questionId', req.params.questionId);
+  console.log('ID: ', indexToRemove);
   if (indexToRemove === -1) {
     // element not found
     res.status(400).json({ error: 'Question not found' });
@@ -319,7 +320,7 @@ app.delete('/:gameId/questions/:questionId/delete', async function (req, res) {
       Key: {
         gameId: req.params.gameId,
       },
-      UpdateExpression: `REMOVE questions[${indexToRemove}]`
+      UpdateExpression: `REMOVE questions[${indexToRemove}]`,
     };
 
     DynamoDB.update(params, (error) => {
@@ -331,7 +332,7 @@ app.delete('/:gameId/questions/:questionId/delete', async function (req, res) {
       res.json({ gameId: req.params.gameId, questionId: req.params.questionId });
     });
   }
-})
+});
 
 /** PLAYER */
 // Add Player endpoint
@@ -342,17 +343,20 @@ app.put('/:gameId/players/add', function (req, res) {
     res.status(400).json({ error: '"name" must be a string' });
   }
 
+  // Short id
+  const shortId = shortid.generate();
+
   const params = {
     TableName: GAMES_TABLE,
     Key: {
       gameId: req.params.gameId,
     },
     ExpressionAttributeNames: {
-      "#Y": "players"
+      '#Y': 'players',
     },
-    UpdateExpression: "SET #Y = list_append(#Y,:y)",
+    UpdateExpression: 'SET #Y = list_append(#Y,:y)',
     ExpressionAttributeValues: {
-      ":y": [{ playerId: shortid.generate(), name, score: 0 }]
+      ':y': [{ playerId: shortId, name, score: 0 }],
     },
   };
 
@@ -362,9 +366,9 @@ app.put('/:gameId/players/add', function (req, res) {
       res.status(400).json({ error: 'Could not create player' });
     }
 
-    res.json({ gameId: req.params.gameId, playerId: shortid.generate(), name, score: 0 });
+    res.json({ gameId: req.params.gameId, playerId: shortId, name, score: 0 });
   });
-})
+});
 
 // Update Player endpoint
 app.put('/:gameId/players/:playerId/update', async function (req, res) {
@@ -398,7 +402,7 @@ app.put('/:gameId/players/:playerId/update', async function (req, res) {
       },
       UpdateExpression: `SET players[${indexToUpdate}] = :valueToUpdate`,
       ExpressionAttributeValues: {
-        ":valueToUpdate": { playerId: req.params.playerId, name, score }
+        ':valueToUpdate': { playerId: req.params.playerId, name, score },
       },
     };
 
@@ -411,7 +415,7 @@ app.put('/:gameId/players/:playerId/update', async function (req, res) {
       res.json({ gameId: req.params.gameId, playerId: req.params.playerId, name, score });
     });
   }
-})
+});
 
 // Delete Player endpoint
 app.delete('/:gameId/players/:playerId/delete', async function (req, res) {
@@ -434,7 +438,7 @@ app.delete('/:gameId/players/:playerId/delete', async function (req, res) {
     Key: {
       gameId: req.params.gameId,
     },
-    UpdateExpression: `REMOVE players[${indexToRemove}]`
+    UpdateExpression: `REMOVE players[${indexToRemove}]`,
   };
 
   DynamoDB.update(params, (error) => {
@@ -445,7 +449,7 @@ app.delete('/:gameId/players/:playerId/delete', async function (req, res) {
 
     res.json({ gameId: req.params.gameId, playerId: req.params.playerId });
   });
-})
+});
 
 module.exports = app;
 
