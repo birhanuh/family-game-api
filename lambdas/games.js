@@ -10,33 +10,31 @@ const app = express();
 require('dotenv').config();
 
 const corsOptions = {
-  origin: ['http://localhost:3001/', 'https://family-game.netlify.app/'],
+  origin: ['http://localhost:3001/', 'https://family-game.netlify.app/', 'https://family.ellariam.com/'],
   optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
 };
 
+// CORS
 app.use(cors(corsOptions));
 
 /** Using env file is not working in AWS */
+// const NODE_ENV = process.env.NODE_ENV;
 // const GAMES_TABLE = process.env.GAMES_TABLE;
-// const IS_OFFLINE = process.env.IS_OFFLINE;
 
+const NODE_ENV = 'production';
 const GAMES_TABLE = 'games-table-dev';
-const IS_OFFLINE = true; // Set to true for dev
 
 // app.use(function (req, res, next) {
 //   res.setHeader("Access-Control-Allow-Origin", "https://family-game.netlify.app/");
 //   next();
 // })
 
-let DynamoDB;
-if (IS_OFFLINE) {
-  DynamoDB = new AWS.DynamoDB.DocumentClient({
+
+const dynamodb = NODE_ENV === 'dev' ? new AWS.DynamoDB.DocumentClient({
     region: 'localhost',
     endpoint: 'http://localhost:8000',
-  });
-} else {
-  DynamoDB = new AWS.DynamoDB.DocumentClient();
-}
+  }): new AWS.DynamoDB.DocumentClient();
+
 
 // Get Games endpoint
 app.get('/', function (req, res) {
@@ -52,7 +50,7 @@ app.get('/', function (req, res) {
     ScanIndexForward: false,
   };
 
-  DynamoDB.scan(params, (error, result) => {
+  dynamodb.scan(params, (error, result) => {
     if (error) {
       console.log(error);
       res.status(400).json({ error: 'Could not get games' });
@@ -74,7 +72,7 @@ app.get('/get/:gameId', function (req, res) {
     },
   };
 
-  DynamoDB.get(params, (error, result) => {
+  dynamodb.get(params, (error, result) => {
     if (error) {
       console.log(error);
       res.status(400).json({ error: 'Could not get game' });
@@ -106,7 +104,7 @@ app.post('/create', function (req, res) {
     },
   };
 
-  DynamoDB.put(params, (error) => {
+  dynamodb.put(params, (error) => {
     if (error) {
       console.log(error);
       res.status(400).json({ error: 'Could not create game' });
@@ -137,7 +135,7 @@ app.put('/:gameId/update', function (req, res) {
     ReturnValues: 'ALL_NEW',
   };
 
-  DynamoDB.update(params, (error, result) => {
+  dynamodb.update(params, (error, result) => {
     if (error) {
       console.log(error);
       res.status(400).json({ error: 'Could not create game' });
@@ -149,7 +147,7 @@ app.put('/:gameId/update', function (req, res) {
 
 // Reset Game endpoint
 app.put('/:gameId/reset', async function (req, res) {
-  const result = await DynamoDB.get({
+  const result = await dynamodb.get({
     TableName: GAMES_TABLE,
     Key: {
       gameId: req.params.gameId,
@@ -184,7 +182,7 @@ app.put('/:gameId/reset', async function (req, res) {
     ReturnValues: 'ALL_NEW',
   };
 
-  DynamoDB.update(params, (error, result) => {
+  dynamodb.update(params, (error, result) => {
     if (error) {
       console.log(error);
       res.status(400).json({ error: 'Could not create game' });
@@ -203,7 +201,7 @@ app.post('/delete/:gameId', function (req, res) {
     },
   };
 
-  DynamoDB.delete(params, (error, result) => {
+  dynamodb.delete(params, (error, result) => {
     if (error) {
       console.log(error);
       res.status(400).json({ error: 'Could not delete game' });
@@ -242,7 +240,7 @@ app.put('/:gameId/questions/add', function (req, res) {
     },
   };
 
-  DynamoDB.update(params, (error) => {
+  dynamodb.update(params, (error) => {
     if (error) {
       console.log(error);
       res.status(400).json({ error: 'Could not create question' });
@@ -264,7 +262,7 @@ app.put('/:gameId/questions/:questionId/update', async function (req, res) {
     res.status(400).json({ error: '"isAsked" must be a boolean' });
   }
 
-  const result = await DynamoDB.get({
+  const result = await dynamodb.get({
     TableName: GAMES_TABLE,
     Key: {
       gameId: req.params.gameId,
@@ -289,7 +287,7 @@ app.put('/:gameId/questions/:questionId/update', async function (req, res) {
     },
   };
 
-  DynamoDB.update(params, (error) => {
+  dynamodb.update(params, (error) => {
     if (error) {
       console.log(error);
       res.status(400).json({ error: 'Could not update question' });
@@ -301,7 +299,7 @@ app.put('/:gameId/questions/:questionId/update', async function (req, res) {
 
 // Delete Question endpoint
 app.delete('/:gameId/questions/:questionId/delete', async function (req, res) {
-  const result = await DynamoDB.get({
+  const result = await dynamodb.get({
     TableName: GAMES_TABLE,
     Key: {
       gameId: req.params.gameId,
@@ -323,7 +321,7 @@ app.delete('/:gameId/questions/:questionId/delete', async function (req, res) {
       UpdateExpression: `REMOVE questions[${indexToRemove}]`,
     };
 
-    DynamoDB.update(params, (error) => {
+    dynamodb.update(params, (error) => {
       if (error) {
         console.log(error);
         res.status(400).json({ error: 'Could not delete question' });
@@ -360,7 +358,7 @@ app.put('/:gameId/players/add', function (req, res) {
     },
   };
 
-  DynamoDB.update(params, (error) => {
+  dynamodb.update(params, (error) => {
     if (error) {
       console.log(error);
       res.status(400).json({ error: 'Could not create player' });
@@ -382,7 +380,7 @@ app.put('/:gameId/players/:playerId/update', async function (req, res) {
     res.status(400).json({ error: '"score" must be a number' });
   }
 
-  const result = await DynamoDB.get({
+  const result = await dynamodb.get({
     TableName: GAMES_TABLE,
     Key: {
       gameId: req.params.gameId,
@@ -406,7 +404,7 @@ app.put('/:gameId/players/:playerId/update', async function (req, res) {
       },
     };
 
-    DynamoDB.update(params, (error) => {
+    dynamodb.update(params, (error) => {
       if (error) {
         console.log(error);
         res.status(400).json({ error: 'Could not update player' });
@@ -419,7 +417,7 @@ app.put('/:gameId/players/:playerId/update', async function (req, res) {
 
 // Delete Player endpoint
 app.delete('/:gameId/players/:playerId/delete', async function (req, res) {
-  const result = await DynamoDB.get({
+  const result = await dynamodb.get({
     TableName: GAMES_TABLE,
     Key: {
       gameId: req.params.gameId,
@@ -441,7 +439,7 @@ app.delete('/:gameId/players/:playerId/delete', async function (req, res) {
     UpdateExpression: `REMOVE players[${indexToRemove}]`,
   };
 
-  DynamoDB.update(params, (error) => {
+  dynamodb.update(params, (error) => {
     if (error) {
       console.log(error);
       res.status(400).json({ error: 'Could not delete player' });

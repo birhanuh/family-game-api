@@ -1,3 +1,5 @@
+'use strict';
+
 const serverless = require('serverless-http');
 const express = require('express');
 
@@ -10,16 +12,15 @@ require("dotenv").config();
 // get body as json
 app.use(express.json());
 
-// controllers
-// const users = require('./controllers/users');
-const games = require('./controllers/games');
+// lambdas
+// const users = require('./lambdas/users');
+const games = require('./lambdas/games');
 
 // CORS
 app.use(function (req, res, next) {
   res.setHeader("Access-Control-Allow-Origin", "Content-Type");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Credentials", true);
-
   next();
 });
 
