@@ -18,7 +18,6 @@
     "shortid": "^2.2.8"
   },
   "devDependencies": {
-    "dotenv": "^16.4.7",
     "serverless-dynamodb-local": "^0.2.40",
     "serverless-offline": "^14.4.0"
   }

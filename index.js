@@ -6,9 +6,6 @@ const express = require('express');
 // app
 const app = express();
 
-// env
-require("dotenv").config();
-
 // get body as json
 app.use(express.json());
 

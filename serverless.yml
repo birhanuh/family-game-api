@@ -13,15 +13,6 @@
 
 service: family-games-api
 
-custom:
-  tableName: 'games-table-${self:provider.stage}'
-  dynamodb:
-    stages:
-      - dev
-    start:
-      migrate: true
-    noStart: true
-
 # app and org for use with dashboard.serverless.com
 #app: your-app-name
 
@@ -35,37 +26,34 @@ plugins:
 provider:
   name: aws
   runtime: nodejs18.x
-  lambdaHashingVersion: 20201221
-
-  # you can overwrite defaults here
   stage: dev
   region: eu-west-1
   iamRoleStatements:
     - Effect: Allow
       Action:
-        - dynamodb:Query
-        - dynamodb:Scan
-        - dynamodb:GetItem
-        - dynamodb:PutItem
-        - dynamodb:UpdateItem
-        - dynamodb:DeleteItem
-      Resource:
-        - { 'Fn::GetAtt': ['GamesDynamoDBTable', 'Arn'] }
+        - 'dynamodb:PutItem'
+        - 'dynamodb:Get*'
+        - 'dynamodb:Scan*'
+        - 'dynamodb:UpdateItem'
+        - 'dynamodb:DeleteItem'
+      Resource: arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:service}-gameTable-${sls:stage}
+
+  environment:
+    DYNAMODB_GAME_TABLE: ${self:service}-gameTable-${sls:stage}
+    ENV: 'production'
 
 functions:
   app:
     handler: index.handler
     events:
-      - http: ANY /
-      - http: 'ANY /{proxy+}'
+      - httpApi: '*'
     environment:
-      USERS_TABLE: ${self:custom.tableName}
-      # NODE_ENV: ${self:custom.nodeEnv}
+      DYNAMODB_USER_TABLE: ${self:service}-userTable-${sls:stage}
 
 # you can add CloudFormation resource templates here
 resources:
   Resources:
-    GamesDynamoDBTable:
+    GameTable:
       Type: 'AWS::DynamoDB::Table'
       Properties:
         AttributeDefinitions:
@@ -77,7 +65,7 @@ resources:
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
-        TableName: ${self:custom.tableName}
+        TableName: ${self:service}-gameTable-${sls:stage}
   #   NewResource:
   #     Type: AWS::S3::Bucket
   #     Properties:
